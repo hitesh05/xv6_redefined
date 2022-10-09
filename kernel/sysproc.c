@@ -97,3 +97,11 @@ sys_trace(void){
   myproc()->mask = n;
   return 0;
 }
+
+uint64
+sys_sigalarm(void){
+  int n;
+  argint(0, &n);
+  myproc()->ticks0 = 0;
+  return 0;
+}

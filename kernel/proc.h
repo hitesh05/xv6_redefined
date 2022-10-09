@@ -84,6 +84,7 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 // Per-process state
 struct proc {
   int mask; // mask for trace syscall
+  int ticks0;
 
   struct spinlock lock;
 
@@ -106,4 +107,20 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+
+  // MLFQ SCHEDULER
+  int curr_queue; // level of queue where process resides
+  int ticks_spent; // time spent in the queue
+  int enter_time; // time when proc entered the queue
+  int in_queue; // checks if the process is in queue
+  int time_slice; // time slice remaining
+  int queue[5];
 };
+
+typedef struct Queue{
+  int head;
+  int tail;
+  struct proc* p[NPROC+1];
+  int size;
+} Queue;

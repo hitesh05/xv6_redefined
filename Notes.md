@@ -17,3 +17,11 @@ linkers are used to link printf call
 *syscall.h*
 *sysproc.c*
 *proc.c*
+
+
+## Scheduling
+
+*main.c* -> calls scheduler()
+*proc.c* -> 
+*proc.h* -> contains struct proc (make changes for specific schedulers)
+*trap.c* -> yield() [in proc.c] -> changes state to runnable -> calls sched() -> switches context
