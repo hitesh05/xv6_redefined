@@ -294,6 +294,9 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+
+  np->mask = p->mask; // copying mask so that we can also trace child processes
+  
   np->sz = p->sz;
 
   // copy saved user registers.
