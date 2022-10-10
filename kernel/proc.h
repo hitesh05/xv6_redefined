@@ -108,6 +108,18 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
+// PBS Scheduler
+  uint creationTime;
+  uint runTime;
+  uint endTime;
+  uint totalSleep;
+  uint sleepTimePrev;
+  uint sleepStartTime;
+  uint runTimePrev;
+  uint countTimeCalled;
+  uint sprior;
+  uint dprior;
+  uint niceness;
 
   // MLFQ SCHEDULER
   int curr_queue; // level of queue where process resides

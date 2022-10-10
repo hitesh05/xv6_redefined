@@ -176,6 +176,7 @@ void kerneltrap()
   }
 
 // give up the CPU if this is a timer interrupt.
+// checkthis
 #ifdef DEFAULT
   if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
