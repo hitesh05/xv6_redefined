@@ -29,17 +29,42 @@ struct spinlock wait_lock;
 // #ifdef MLFQ
 const int num_levels = 5;
 Queue mlfq[num_levels];
+int calculateDynamicPriority(struct proc *process)
+{
+  process->niceness = 5;
+  if (process->runTimePrev == 0)
+  {
+    if (process->sleepTimePrev == 0)
+    {
+      process->niceness = process->sleepTimePrev * 10;
+      process->niceness /= (process->runTimePrev + process->sleepTimePrev);
+    }
+  }
+  int retval = 0, checker = process->sprior - process->niceness + 5;
+  if (checker > 100)
+  {
+    retval = 100;
+  }
+  else if (checker < 0)
+  {
+    ;
+  }
+  else
+  {
+    retval = checker;
+  }
+  return retval;
+}
 
 int set_priority(int static_prior, int pid)
 {
-  struct proc *process;
   int old_prior = -1, checkIfAvailable = 0;
   if (static_prior < 0 || static_prior > 100)
   {
     printf("Priority is not right\n");
     return -1;
   }
-  struct proc *i, procFound;
+  struct proc *i;
   for (i = proc; i < &proc[NPROC]; i++)
   {
     acquire(&i->lock);
@@ -144,32 +169,6 @@ void qerase(Queue *q, int pid)
   q->size--;
 }
 // #endif
-int calculateDynamicPriority(struct proc *process)
-{
-  process->niceness = 5;
-  if (process->runTimePrev == 0)
-  {
-    if (process->sleepTimePrev == 0)
-    {
-      process->niceness = process->sleepTimePrev * 10;
-      process->niceness /= (process->runTimePrev + process->sleepTimePrev);
-    }
-  }
-  int retval = 0, checker = process->sprior - process->niceness + 5;
-  if (checker > 100)
-  {
-    retval = 100;
-  }
-  else if (checker < 0)
-  {
-    ;
-  }
-  else
-  {
-    retval = checker;
-  }
-  return retval;
-}
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -725,7 +724,7 @@ struct proc *mlfq_sched(void)
 //    via swtch back to the scheduler.
 void scheduler(void)
 {
-  struct proc *p;
+  // struct proc *p;
   struct cpu *c = mycpu();
 
   c->proc = 0;
