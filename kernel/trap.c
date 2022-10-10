@@ -83,6 +83,16 @@ void usertrap(void)
   if (which_dev == 2)
     yield();
 #endif
+#ifdef LBS
+  if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  {
+    struct proc *pr = myproc();
+    if (pr->time_avail == pr->time_spent)
+    {
+      yield();
+    }
+  }
+#endif
 #ifdef MLFQ
   if (which_dev == 2)
   {
@@ -179,6 +189,16 @@ void kerneltrap()
 #ifdef DEFAULT
   if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
+#endif
+#ifdef LBS
+  if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  {
+    struct proc *pr = myproc();
+    if (pr->time_avail == pr->time_spent)
+    {
+      yield();
+    }
+  }
 #endif
 #ifdef MLFQ
   if (which_dev == 2)

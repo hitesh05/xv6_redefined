@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "stdlib.h"
 
 struct cpu cpus[NCPU];
 
@@ -210,6 +211,10 @@ found:
 	p->pid = allocpid();
 	p->state = USED;
 
+	// lbs init
+	p->tickets = 1;
+	p->time_spent = 0;
+	p->time_avail = 0;
 	// mlfq init
 	int slices[5] = {1, 2, 4, 8, 16};
 	p->curr_queue = 0;
@@ -218,7 +223,8 @@ found:
 	p->time_slice = slices[p->curr_queue];
 	p->in_queue = 0;
 	int i = 0;
-	while(i<num_levels){
+	while (i < num_levels)
+	{
 		p->queue[i] = 0;
 		i++;
 	}
@@ -399,7 +405,8 @@ int fork(void)
 		return -1;
 	}
 
-	np->mask = p->mask; // copying mask so that we can also trace child processes
+	np->mask = p->mask;		  // copying mask so that we can also trace child processes
+	np->tickets = p->tickets; // child inherits same number of tickets as parent
 
 	np->sz = p->sz;
 
@@ -556,6 +563,9 @@ void upd_time(void)
 		acquire(&pr->lock);
 		if (pr->state == RUNNING)
 		{
+#ifdef LBS
+			pr->time_spent++;
+#endif
 #ifdef MLFQ
 			pr->queue[pr->curr_queue]++;
 			pr->time_slice--;
@@ -668,6 +678,27 @@ void scheduler(void)
 				// Switch to chosen process.  It is the process's job
 				// to release its lock and then reacquire it
 				// before jumping back to us.
+				p->state = RUNNING;
+				c->proc = p;
+				swtch(&c->context, &p->context);
+
+				// Process is done running for now.
+				// It should have changed its p->state before coming back.
+				c->proc = 0;
+			}
+			release(&p->lock);
+		}
+#endif
+#ifdef LBS
+		for (p = proc; p < &proc[NPROC]; p++)
+		{
+			acquire(&p->lock);
+			if (p->state == RUNNABLE)
+			{
+				// Switch to chosen process.  It is the process's job
+				// to release its lock and then reacquire it
+				// before jumping back to us.
+				p->time_avail = (rand() % 64) * p->tickets;
 				p->state = RUNNING;
 				c->proc = p;
 				swtch(&c->context, &p->context);
@@ -914,3 +945,7 @@ void procdump(void)
 		printf("\n");
 	}
 }
+
+// int settickets(int num){
+
+// }

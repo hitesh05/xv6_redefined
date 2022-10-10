@@ -105,3 +105,10 @@ sys_sigalarm(void){
   myproc()->ticks0 = 0;
   return 0;
 }
+
+uint64
+sys_settickets(void){
+  int n; // tickets
+  argint(0, &n);
+  myproc()->tickets = n;
+}

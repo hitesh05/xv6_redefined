@@ -98,6 +98,8 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_trace(void); // prototype for sys_trace added
+extern uint64 sys_sigalarm(void);
+extern uint64 sys_settickets(void); // for LBS
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -124,6 +126,8 @@ static uint64 (*syscalls[])(void) = {
     [SYS_mkdir] sys_mkdir,
     [SYS_close] sys_close,
     [SYS_trace] sys_trace, // mapped sys_trace to syscall number (22)
+    [SYS_sigalarm] sys_sigalarm,
+    [SYS_settickets] sys_settickets,
 };
 
 typedef struct info
@@ -155,6 +159,8 @@ info syscall_info[] = {
     {"mkdir", 1},
     {"close", 1},
     {"trace", 1},
+    {"sigalarm", 2},
+    {"settickets", 1},
 };
 
 void syscall(void)

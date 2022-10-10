@@ -108,6 +108,11 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
+  // LBS SCHEDULER
+  int tickets;
+  int time_spent;
+  int time_avail;
+  //
 
   // MLFQ SCHEDULER
   int curr_queue; // level of queue where process resides
@@ -116,6 +121,7 @@ struct proc {
   int in_queue; // checks if the process is in queue
   int time_slice; // time slice remaining
   int queue[5];
+  //
 };
 
 typedef struct Queue{
