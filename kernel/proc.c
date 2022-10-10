@@ -506,6 +506,11 @@ int fork(void) // checkthis
 	np->state = RUNNABLE;
 	release(&np->lock);
 
+#ifdef MLFQ
+	push(&mlfq[0], np);
+	np->in_queue = 1;
+#endif
+
 	return pid;
 }
 
@@ -627,14 +632,14 @@ int wait(uint64 addr)
 
 void upd_time(void)
 {
-  struct proc *pr = proc;
-  while (pr < &proc[NPROC])
-  {
-    acquire(&pr->lock);
-    if (pr->state == RUNNING)
-    {
-      pr->runTime++;
-      pr->runTimePrev++;
+	struct proc *pr = proc;
+	while (pr < &proc[NPROC])
+	{
+		acquire(&pr->lock);
+		if (pr->state == RUNNING)
+		{
+			pr->runTime++;
+			pr->runTimePrev++;
 #ifdef LBS
 			pr->time_spent++;
 #endif
@@ -1009,6 +1014,14 @@ void wakeup(void *chan)
 					p->sleepTimePrev = ticks - p->sleepStartTime;
 					p->totalSleep += p->sleepTimePrev;
 				}
+#ifdef MLFQ
+				p->enter_time = ticks;
+				p->queue[p->curr_queue] = 0;
+				p->in_queue = 1;
+				int slices[5] = {1, 2, 4, 8, 16};
+				p->time_slice = slices[p->curr_queue];
+				push(&mlfq[p->curr_queue], p);
+#endif
 			}
 			release(&p->lock);
 		}
@@ -1033,6 +1046,14 @@ int kill(int pid)
 				p->sleepTimePrev = ticks - p->sleepStartTime;
 				// Wake process from sleep().
 				p->state = RUNNABLE;
+#ifdef MLFQ
+				p->enter_time = ticks;
+				p->queue[p->curr_queue] = 0;
+				p->in_queue = 1;
+				int slices[5] = {1, 2, 4, 8, 16};
+				p->time_slice = slices[p->curr_queue];
+				push(&mlfq[p->curr_queue], p);
+#endif
 			}
 			release(&p->lock);
 			return 0;
