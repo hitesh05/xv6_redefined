@@ -29,7 +29,7 @@ struct spinlock wait_lock;
 
 // #ifdef MLFQ
 const int num_levels = 5;
-Queue mlfq[num_levels];
+Queue mlfq[5];
 int calculateDynamicPriority(struct proc *process)
 {
 	process->niceness = 5;

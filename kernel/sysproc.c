@@ -123,4 +123,5 @@ sys_settickets(void){
   int n; // tickets
   argint(0, &n);
   myproc()->tickets = n;
+  return 0;
 }
