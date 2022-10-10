@@ -113,6 +113,18 @@ struct proc {
   int time_spent;
   int time_avail;
   //
+// PBS Scheduler
+  uint creationTime;
+  uint runTime;
+  uint endTime;
+  uint totalSleep;
+  uint sleepTimePrev;
+  uint sleepStartTime;
+  uint runTimePrev;
+  uint countTimeCalled;
+  uint sprior;
+  uint dprior;
+  uint niceness;
 
   // MLFQ SCHEDULER
   int curr_queue; // level of queue where process resides

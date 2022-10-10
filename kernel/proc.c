@@ -30,7 +30,68 @@ struct spinlock wait_lock;
 // #ifdef MLFQ
 const int num_levels = 5;
 Queue mlfq[num_levels];
+int calculateDynamicPriority(struct proc *process)
+{
+	process->niceness = 5;
+	if (process->runTimePrev == 0)
+	{
+		if (process->sleepTimePrev == 0)
+		{
+			process->niceness = process->sleepTimePrev * 10;
+			process->niceness /= (process->runTimePrev + process->sleepTimePrev);
+		}
+	}
+	int retval = 0, checker = process->sprior - process->niceness + 5;
+	if (checker > 100)
+	{
+		retval = 100;
+	}
+	else if (checker < 0)
+	{
+		;
+	}
+	else
+	{
+		retval = checker;
+	}
+	return retval;
+}
 
+int set_priority(int static_prior, int pid)
+{
+	int old_prior = -1, checkIfAvailable = 0;
+	if (static_prior < 0 || static_prior > 100)
+	{
+		printf("Priority is not right\n");
+		return -1;
+	}
+	struct proc *i;
+	for (i = proc; i < &proc[NPROC]; i++)
+	{
+		acquire(&i->lock);
+		if (i->pid == pid)
+		{
+			checkIfAvailable = 1;
+			release(&i->lock);
+			break;
+		}
+		release(&i->lock);
+	}
+	if (checkIfAvailable == 1)
+	{
+		acquire(&i->lock);
+		old_prior = i->sprior;
+		i->sprior = static_prior;
+		i->niceness = 5;
+		i->dprior = calculateDynamicPriority(i);
+		release(&i->lock);
+	}
+	else
+	{
+		return -1;
+	}
+	return old_prior;
+}
 void pinit(void)
 {
 	int i = 0;
@@ -252,6 +313,15 @@ found:
 	memset(&p->context, 0, sizeof(p->context));
 	p->context.ra = (uint64)forkret;
 	p->context.sp = p->kstack + PGSIZE;
+	// PBS declaration
+	p->creationTime = ticks;
+	p->sprior = 60;
+	p->niceness = 5;
+	p->runTime = 0;
+	p->endTime = 0;
+	p->runTimePrev = 0;
+	p->sleepTimePrev = 0;
+	p->sleepStartTime = 0;
 
 	return p;
 }
@@ -385,7 +455,7 @@ int growproc(int n)
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
-int fork(void)
+int fork(void) // checkthis
 {
 	int i, pid;
 	struct proc *np;
@@ -557,12 +627,14 @@ int wait(uint64 addr)
 
 void upd_time(void)
 {
-	struct proc *pr = proc;
-	while (pr < &proc[NPROC])
-	{
-		acquire(&pr->lock);
-		if (pr->state == RUNNING)
-		{
+  struct proc *pr = proc;
+  while (pr < &proc[NPROC])
+  {
+    acquire(&pr->lock);
+    if (pr->state == RUNNING)
+    {
+      pr->runTime++;
+      pr->runTimePrev++;
 #ifdef LBS
 			pr->time_spent++;
 #endif
@@ -661,7 +733,7 @@ struct proc *mlfq_sched(void)
 //    via swtch back to the scheduler.
 void scheduler(void)
 {
-	struct proc *p;
+	// struct proc *p;
 	struct cpu *c = mycpu();
 
 	c->proc = 0;
@@ -710,6 +782,104 @@ void scheduler(void)
 			release(&p->lock);
 		}
 #endif
+#ifdef FCFS
+		for (;;)
+		{
+			// Avoid deadlock by ensuring that devices can interrupt.
+			intr_on();
+			struct proc *check = NULL;
+			for (p = proc; p < &proc[NPROC]; p++)
+			{
+				if (p->state == RUNNABLE)
+				{
+					if (check == NULL)
+					{
+						check = p;
+					}
+					else if (p->creationTime < check->creationTime)
+					{
+						check = p;
+					}
+				}
+			}
+			if (check != NULL)
+			{
+				acquire(&check->lock);
+
+				// Switch to chosen process.  It is the process's job
+				// to release its lock and then reacquire it
+				// before jumping back to us.
+				check->state = RUNNING;
+				c->proc = check;
+				swtch(&c->context, &check->context);
+
+				// Process is done running for now.
+				// It should have changed its p->state before coming back.
+				c->proc = 0;
+				release(&check->lock);
+			}
+		}
+#endif
+#ifdef PBS
+		for (;;)
+		{
+			// Avoid deadlock by ensuring that devices can interrupt.
+			intr_on();
+			struct proc *check = NULL;
+			for (p = proc; p < &proc[NPROC]; p++)
+			{
+				acquire(&p->lock);
+				p->dprior = calculateDynamicPriority(p);
+				if (p->state == RUNNABLE)
+				{
+					if (check == NULL)
+					{
+						check = p;
+					}
+					else if (p->dprior < check->dprior)
+					{
+						check = p;
+					}
+					else if (p->dprior == check->dprior)
+					{
+						if (p->countTimeCalled < check->countTimeCalled) // checkthis
+						{
+							check = p;
+						}
+						else if (p->countTimeCalled == check->countTimeCalled) // checkthis
+						{
+							if (p->creationTime > check->creationTime)
+							{
+								check = p;
+							}
+						}
+					}
+				}
+				release(&p->lock);
+			}
+			if (check != NULL)
+			{
+				acquire(&check->lock);
+
+				// Switch to chosen process.  It is the process's job
+				// to release its lock and then reacquire it
+				// before jumping back to us.
+				check->countTimeCalled += 1;
+				check->state = RUNNING;
+				// checkthis
+				c->proc = check;
+				check->sleepTimePrev = 0;
+				check->runTimePrev = 0;
+				swtch(&c->context, &check->context);
+
+				// Process is done running for now.
+				// It should have changed its p->state before coming back.
+				c->proc = 0;
+				release(&check->lock);
+			}
+		}
+#endif
+
 #ifdef MLFQ
 		p = mlfq_sched();
 		if (!p)
@@ -834,6 +1004,11 @@ void wakeup(void *chan)
 			if (p->state == SLEEPING && p->chan == chan)
 			{
 				p->state = RUNNABLE;
+				if (p->sleepStartTime != 0)
+				{
+					p->sleepTimePrev = ticks - p->sleepStartTime;
+					p->totalSleep += p->sleepTimePrev;
+				}
 			}
 			release(&p->lock);
 		}
@@ -855,6 +1030,7 @@ int kill(int pid)
 			p->killed = 1;
 			if (p->state == SLEEPING)
 			{
+				p->sleepTimePrev = ticks - p->sleepStartTime;
 				// Wake process from sleep().
 				p->state = RUNNABLE;
 			}

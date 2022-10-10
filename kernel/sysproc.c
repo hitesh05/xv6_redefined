@@ -12,7 +12,7 @@ sys_exit(void)
   int n;
   argint(0, &n);
   exit(n);
-  return 0;  // not reached
+  return 0; // not reached
 }
 
 uint64
@@ -43,7 +43,7 @@ sys_sbrk(void)
 
   argint(0, &n);
   addr = myproc()->sz;
-  if(growproc(n) < 0)
+  if (growproc(n) < 0)
     return -1;
   return addr;
 }
@@ -57,8 +57,10 @@ sys_sleep(void)
   argint(0, &n);
   acquire(&tickslock);
   ticks0 = ticks;
-  while(ticks - ticks0 < n){
-    if(killed(myproc())){
+  while (ticks - ticks0 < n)
+  {
+    if (killed(myproc()))
+    {
       release(&tickslock);
       return -1;
     }
@@ -91,7 +93,8 @@ sys_uptime(void)
 }
 
 uint64
-sys_trace(void){
+sys_trace(void)
+{
   int n; // mask
   argint(0, &n);
   myproc()->mask = n;
@@ -99,13 +102,22 @@ sys_trace(void){
 }
 
 uint64
-sys_sigalarm(void){
+sys_sigalarm(void)
+{
   int n;
   argint(0, &n);
   myproc()->ticks0 = 0;
   return 0;
 }
-
+uint64
+sys_set_priority(void)
+{
+  int priority;
+  int pid;
+  argint(0, &priority);
+  argint(1, &pid);
+  return set_priority(priority, pid);
+}
 uint64
 sys_settickets(void){
   int n; // tickets
