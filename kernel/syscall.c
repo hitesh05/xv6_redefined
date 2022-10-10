@@ -98,7 +98,7 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_trace(void); // prototype for sys_trace added
-
+extern uint64 sys_set_priority(void);// added for PBS scheduler
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -124,6 +124,7 @@ static uint64 (*syscalls[])(void) = {
     [SYS_mkdir] sys_mkdir,
     [SYS_close] sys_close,
     [SYS_trace] sys_trace, // mapped sys_trace to syscall number (22)
+    [SYS_priority] sys_set_priority,
 };
 
 typedef struct info
@@ -131,7 +132,7 @@ typedef struct info
   char *name;
   int num;
 } info;
-
+// checkthis
 info syscall_info[] = {
     {"fork", 0},
     {"exit", 1},

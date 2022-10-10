@@ -30,6 +30,42 @@ struct spinlock wait_lock;
 const int num_levels = 5;
 Queue mlfq[num_levels];
 
+int set_priority(int static_prior, int pid)
+{
+  struct proc *process;
+  int old_prior = -1, checkIfAvailable = 0;
+  if (static_prior < 0 || static_prior > 100)
+  {
+    printf("Priority is not right\n");
+    return -1;
+  }
+  struct proc *i, procFound;
+  for (i = proc; i < &proc[NPROC]; i++)
+  {
+    acquire(&i->lock);
+    if (i->pid == pid)
+    {
+      checkIfAvailable = 1;
+      release(&i->lock);
+      break;
+    }
+    release(&i->lock);
+  }
+  if (checkIfAvailable == 1)
+  {
+    acquire(&i->lock);
+    old_prior = i->sprior;
+    i->sprior = static_prior;
+    i->niceness = 5;
+    i->dprior = calculateDynamicPriority(i);
+    release(&i->lock);
+  }
+  else
+  {
+    return -1;
+  }
+  return old_prior;
+}
 void pinit(void)
 {
   int i = 0;
@@ -108,6 +144,32 @@ void qerase(Queue *q, int pid)
   q->size--;
 }
 // #endif
+int calculateDynamicPriority(struct proc *process)
+{
+  process->niceness = 5;
+  if (process->runTimePrev == 0)
+  {
+    if (process->sleepTimePrev == 0)
+    {
+      process->niceness = process->sleepTimePrev * 10;
+      process->niceness /= (process->runTimePrev + process->sleepTimePrev);
+    }
+  }
+  int retval = 0, checker = process->sprior - process->niceness + 5;
+  if (checker > 100)
+  {
+    retval = 100;
+  }
+  else if (checker < 0)
+  {
+    ;
+  }
+  else
+  {
+    retval = checker;
+  }
+  return retval;
+}
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -738,7 +800,7 @@ void scheduler(void)
       for (p = proc; p < &proc[NPROC]; p++)
       {
         acquire(&p->lock);
-
+        p->dprior = calculateDynamicPriority(p);
         if (p->state == RUNNABLE)
         {
           if (check == NULL)
@@ -777,7 +839,8 @@ void scheduler(void)
         check->state = RUNNING;
         // checkthis
         c->proc = check;
-
+        check->sleepTimePrev = 0;
+        check->runTimePrev = 0;
         swtch(&c->context, &check->context);
 
         // Process is done running for now.
@@ -938,7 +1001,7 @@ int kill(int pid)
       p->killed = 1;
       if (p->state == SLEEPING)
       {
-                p->sleepTimePrev=ticks-p->sleepStartTime;
+        p->sleepTimePrev = ticks - p->sleepStartTime;
         // Wake process from sleep().
         p->state = RUNNABLE;
       }
@@ -1028,8 +1091,4 @@ void procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
-}
-int calculateDynamicPriority(struct proc *process)
-{
-
 }
