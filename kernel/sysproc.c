@@ -109,8 +109,9 @@ sys_sigalarm(void)
   myproc()->ticks0 = 0;
   return 0;
 }
+
 uint64
-sys_set_priority(void)
+sys_setpriority(void)
 {
   int priority;
   int pid;
@@ -118,6 +119,7 @@ sys_set_priority(void)
   argint(1, &pid);
   return set_priority(priority, pid);
 }
+
 uint64
 sys_settickets(void){
   int n; // tickets

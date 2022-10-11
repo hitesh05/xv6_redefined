@@ -27,9 +27,12 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-// #ifdef MLFQ
+#ifdef MLFQ
 const int num_levels = 5;
 Queue mlfq[5];
+#endif
+
+// #ifdef PBS
 int calculateDynamicPriority(struct proc *process)
 {
 	process->niceness = 5;
@@ -56,6 +59,7 @@ int calculateDynamicPriority(struct proc *process)
 	}
 	return retval;
 }
+// #endif
 
 int set_priority(int static_prior, int pid)
 {
@@ -92,6 +96,8 @@ int set_priority(int static_prior, int pid)
 	}
 	return old_prior;
 }
+
+#ifdef MLFQ
 void pinit(void)
 {
 	int i = 0;
@@ -169,7 +175,7 @@ void qerase(Queue *q, int pid)
 	}
 	q->size--;
 }
-// #endif
+#endif
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -272,10 +278,14 @@ found:
 	p->pid = allocpid();
 	p->state = USED;
 
+#ifdef LBS
 	// lbs init
 	p->tickets = 1;
 	p->time_spent = 0;
 	p->time_avail = 0;
+#endif
+
+#ifdef MLFQ
 	// mlfq init
 	int slices[5] = {1, 2, 4, 8, 16};
 	p->curr_queue = 0;
@@ -289,7 +299,8 @@ found:
 		p->queue[i] = 0;
 		i++;
 	}
-	//
+//
+#endif
 
 	// Allocate a trapframe page.
 	if ((p->trapframe = (struct trapframe *)kalloc()) == 0)
@@ -313,6 +324,8 @@ found:
 	memset(&p->context, 0, sizeof(p->context));
 	p->context.ra = (uint64)forkret;
 	p->context.sp = p->kstack + PGSIZE;
+
+#ifdef PBS
 	// PBS declaration
 	p->creationTime = ticks;
 	p->sprior = 60;
@@ -322,6 +335,7 @@ found:
 	p->runTimePrev = 0;
 	p->sleepTimePrev = 0;
 	p->sleepStartTime = 0;
+#endif
 
 	return p;
 }
@@ -475,8 +489,10 @@ int fork(void) // checkthis
 		return -1;
 	}
 
-	np->mask = p->mask;		  // copying mask so that we can also trace child processes
+	np->mask = p->mask; // copying mask so that we can also trace child processes
+#ifdef LBS
 	np->tickets = p->tickets; // child inherits same number of tickets as parent
+#endif
 
 	np->sz = p->sz;
 
@@ -638,8 +654,10 @@ void upd_time(void)
 		acquire(&pr->lock);
 		if (pr->state == RUNNING)
 		{
+#ifdef PBS
 			pr->runTime++;
 			pr->runTimePrev++;
+#endif
 #ifdef LBS
 			pr->time_spent++;
 #endif
@@ -738,7 +756,7 @@ struct proc *mlfq_sched(void)
 //    via swtch back to the scheduler.
 void scheduler(void)
 {
-	// struct proc *p;
+	struct proc *p;
 	struct cpu *c = mycpu();
 
 	c->proc = 0;
@@ -1009,11 +1027,13 @@ void wakeup(void *chan)
 			if (p->state == SLEEPING && p->chan == chan)
 			{
 				p->state = RUNNABLE;
+#ifdef PBS
 				if (p->sleepStartTime != 0)
 				{
 					p->sleepTimePrev = ticks - p->sleepStartTime;
 					p->totalSleep += p->sleepTimePrev;
 				}
+#endif
 #ifdef MLFQ
 				p->enter_time = ticks;
 				p->queue[p->curr_queue] = 0;
@@ -1043,7 +1063,9 @@ int kill(int pid)
 			p->killed = 1;
 			if (p->state == SLEEPING)
 			{
+#ifdef PBS
 				p->sleepTimePrev = ticks - p->sleepStartTime;
+#endif
 				// Wake process from sleep().
 				p->state = RUNNABLE;
 #ifdef MLFQ

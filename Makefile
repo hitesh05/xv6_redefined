@@ -72,7 +72,7 @@ CFLAGS += -fno-pie -nopie
 endif
 
 ifndef SCHEDULER 
-SCHEDULER:=RR
+	SCHEDULER:=DEFAULT
 endif
 CFLAGS+="-D$(SCHEDULER)"
 LDFLAGS = -z max-page-size=4096
@@ -137,6 +137,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_strace\
+	$U/_setpriority\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

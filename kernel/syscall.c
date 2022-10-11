@@ -100,7 +100,7 @@ extern uint64 sys_close(void);
 extern uint64 sys_trace(void); // prototype for sys_trace added
 extern uint64 sys_sigalarm(void);
 extern uint64 sys_settickets(void); // for LBS
-extern uint64 sys_set_priority(void);// added for PBS scheduler
+extern uint64 sys_setpriority(void);// added for PBS scheduler
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -128,7 +128,7 @@ static uint64 (*syscalls[])(void) = {
     [SYS_close] sys_close,
     [SYS_trace] sys_trace, // mapped sys_trace to syscall number (22)
     [SYS_sigalarm] sys_sigalarm,
-    [SYS_priority] sys_set_priority,
+    [SYS_setpriority] sys_setpriority,
     [SYS_settickets] sys_settickets,
 };
 

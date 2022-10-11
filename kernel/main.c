@@ -29,7 +29,9 @@ main()
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
     userinit();      // first user process
+    #ifdef MLFQ
     pinit();
+    #endif
     __sync_synchronize();
     started = 1;
   } else {
@@ -38,9 +40,13 @@ main()
     __sync_synchronize();
     printf("hart %d starting\n", cpuid());
     kvminithart();    // turn on paging
+    // printf("kvminit done\n");
     trapinithart();   // install kernel trap vector
+    // printf("trapinit done\n");
     plicinithart();   // ask PLIC for device interrupts
+    // printf("plicinit done\n");
   }
 
+  // printf("about to call sceduler\n");
   scheduler();        
 }
