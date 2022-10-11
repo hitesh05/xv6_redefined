@@ -68,7 +68,7 @@ void usertrap(void)
 	{
 		// ok
 	}
-	else
+	else // trap caused by incorrect behaviour. prints details of the user program and sets cp->killed to clean up the process then exits
 	{
 		printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
 		printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());

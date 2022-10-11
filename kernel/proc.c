@@ -1027,6 +1027,9 @@ void wakeup(void *chan)
 			if (p->state == SLEEPING && p->chan == chan)
 			{
 				p->state = RUNNABLE;
+#ifdef LBS
+				p->time_spent = 0;
+#endif
 #ifdef PBS
 				if (p->sleepStartTime != 0)
 				{
@@ -1063,6 +1066,9 @@ int kill(int pid)
 			p->killed = 1;
 			if (p->state == SLEEPING)
 			{
+#ifdef LBS
+				p->time_spent = 0;
+#endif
 #ifdef PBS
 				p->sleepTimePrev = ticks - p->sleepStartTime;
 #endif
