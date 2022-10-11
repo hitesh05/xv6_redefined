@@ -325,7 +325,7 @@ found:
 	p->context.ra = (uint64)forkret;
 	p->context.sp = p->kstack + PGSIZE;
 
-#ifdef PBS
+	// #ifdef PBS
 	// PBS declaration
 	p->creationTime = ticks;
 	p->sprior = 60;
@@ -335,7 +335,7 @@ found:
 	p->runTimePrev = 0;
 	p->sleepTimePrev = 0;
 	p->sleepStartTime = 0;
-#endif
+	// #endif
 
 	return p;
 }
@@ -491,10 +491,11 @@ int waitx(uint64 addr, uint *wtime, uint *rtime)
 				{
 					// Found one.
 					pid = np->pid;
-#ifdef PBS
+					// #ifdef PBS
 					*rtime = np->runTime;
+					printf("%d %d %d\n", np->endTime, np->creationTime, np->runTime);
 					*wtime = np->endTime - np->creationTime - np->runTime;
-#endif
+					// #endif
 					if (addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
 											 sizeof(np->xstate)) < 0)
 					{
@@ -640,7 +641,7 @@ void exit(int status)
 
 	p->xstate = status;
 	p->state = ZOMBIE;
-
+	p->endTime = ticks;
 	release(&wait_lock);
 
 	// Jump into the scheduler, never to return.
@@ -684,6 +685,7 @@ int wait(uint64 addr)
 					freeproc(pp);
 					release(&pp->lock);
 					release(&wait_lock);
+					pp->endTime = ticks;
 					return pid;
 				}
 				release(&pp->lock);
@@ -710,10 +712,10 @@ void upd_time(void)
 		acquire(&pr->lock);
 		if (pr->state == RUNNING)
 		{
-#ifdef PBS
+			// #ifdef PBS
 			pr->runTime++;
 			pr->runTimePrev++;
-#endif
+// #endif
 #ifdef LBS
 			pr->time_spent++;
 #endif
@@ -967,7 +969,7 @@ void scheduler(void)
 		}
 		else
 		{
-			// acquire(&p->lock);
+			acquire(&p->lock);
 			int slices[5] = {1, 2, 4, 8, 16};
 			int level = p->curr_queue;
 			p->time_slice = slices[level];
@@ -976,7 +978,7 @@ void scheduler(void)
 			swtch(&c->context, &p->context);
 			c->proc = 0;
 			p->enter_time = ticks;
-			// release(&p->lock);
+			release(&p->lock);
 		}
 #endif
 	}
@@ -1086,13 +1088,13 @@ void wakeup(void *chan)
 #ifdef LBS
 				p->time_spent = 0;
 #endif
-#ifdef PBS
+				// #ifdef PBS
 				if (p->sleepStartTime != 0)
 				{
 					p->sleepTimePrev = ticks - p->sleepStartTime;
 					p->totalSleep += p->sleepTimePrev;
 				}
-#endif
+// #endif
 #ifdef MLFQ
 				p->enter_time = ticks;
 				p->queue[p->curr_queue] = 0;
@@ -1125,9 +1127,9 @@ int kill(int pid)
 #ifdef LBS
 				p->time_spent = 0;
 #endif
-#ifdef PBS
+				// #ifdef PBS
 				p->sleepTimePrev = ticks - p->sleepStartTime;
-#endif
+				// #endif
 				// Wake process from sleep().
 				p->state = RUNNABLE;
 #ifdef MLFQ
