@@ -109,6 +109,7 @@ void            procdump(void);
 void            pinit(void);
 void            upd_time(void);
 int             set_priority (int, int);
+int             waitx(uint64, uint*, uint*);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
