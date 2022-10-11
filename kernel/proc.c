@@ -466,6 +466,62 @@ int growproc(int n)
 	p->sz = sz;
 	return 0;
 }
+int waitx(uint64 addr, uint *wtime, uint *rtime)
+{
+	struct proc *np;
+	int havekids;
+	int pid;
+	struct proc *p = myproc();
+
+	acquire(&wait_lock);
+
+	for (;;)
+	{
+		// Scan through table looking for exited children.
+		havekids = 0;
+		for (np = proc; np < &proc[NPROC]; np++)
+		{
+			if (np->parent == p)
+			{
+				// make sure the child isn't still in exit() or swtch().
+				acquire(&np->lock);
+
+				havekids = 1;
+				if (np->state == ZOMBIE)
+				{
+					// Found one.
+					pid = np->pid;
+#ifdef PBS
+					*rtime = np->runTime;
+					*wtime = np->endTime - np->creationTime - np->runTime;
+#endif
+					if (addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+											 sizeof(np->xstate)) < 0)
+					{
+						release(&np->lock);
+						release(&wait_lock);
+						return -1;
+					}
+					freeproc(np);
+					release(&np->lock);
+					release(&wait_lock);
+					return pid;
+				}
+				release(&np->lock);
+			}
+		}
+
+		// No point waiting if we don't have any children.
+		if (!havekids || p->killed)
+		{
+			release(&wait_lock);
+			return -1;
+		}
+
+		// Wait for a child to exit.
+		sleep(p, &wait_lock); // DOC: wait-sleep
+	}
+}
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
@@ -1166,7 +1222,7 @@ void procdump(void)
 			state = states[p->state];
 		else
 			state = "???";
-		printf("%d %s %s", p->pid, state, p->name);
+		printf("%d %s %s %d %d", p->pid, state, p->name, p->runTime, p->countTimeCalled);
 		printf("\n");
 	}
 }

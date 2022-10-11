@@ -101,6 +101,7 @@ extern uint64 sys_trace(void); // prototype for sys_trace added
 extern uint64 sys_sigalarm(void);
 extern uint64 sys_settickets(void); // for LBS
 extern uint64 sys_setpriority(void);// added for PBS scheduler
+extern uint64 sys_waitx(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,6 +131,8 @@ static uint64 (*syscalls[])(void) = {
     [SYS_sigalarm] sys_sigalarm,
     [SYS_setpriority] sys_setpriority,
     [SYS_settickets] sys_settickets,
+    [SYS_waitx]   sys_waitx,
+
 };
 
 typedef struct info
@@ -164,6 +167,7 @@ info syscall_info[] = {
     {"sigalarm", 2},
     {"setpriority", 2}, // CHECK
     {"settickets", 1},
+    {"waitx",3}
 };
 
 void syscall(void)

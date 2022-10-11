@@ -24,6 +24,8 @@ int sleep(int);
 int uptime(void);
 void trace(int);
 int setpriority(int, int);
+int waitx(int*, int* /*wtime*/, int* /*rtime*/);
+
 
 // ulib.c
 int stat(const char *, struct stat *);
