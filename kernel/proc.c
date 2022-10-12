@@ -969,7 +969,7 @@ void scheduler(void)
 		}
 		else
 		{
-			acquire(&p->lock);
+			// acquire(&p->lock);
 			int slices[5] = {1, 2, 4, 8, 16};
 			int level = p->curr_queue;
 			p->time_slice = slices[level];
@@ -978,7 +978,7 @@ void scheduler(void)
 			swtch(&c->context, &p->context);
 			c->proc = 0;
 			p->enter_time = ticks;
-			release(&p->lock);
+			// release(&p->lock);
 		}
 #endif
 	}
@@ -1202,7 +1202,7 @@ int either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
-// No lock to avoid wedging a stuck machine further.
+// No lock to avoid wedging a stuck mastatechine further.
 void procdump(void)
 {
 	static char *states[] = {
