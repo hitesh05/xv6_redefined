@@ -3,6 +3,8 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+// #include <time.h>
+// #include <stdlib.h>
 
 volatile static int started = 0;
 
@@ -48,5 +50,6 @@ main()
   }
 
   // printf("about to call sceduler\n");
+  // srand(time(NULL));
   scheduler();        
 }

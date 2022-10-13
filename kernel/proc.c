@@ -493,7 +493,7 @@ int waitx(uint64 addr, uint *wtime, uint *rtime)
 					pid = np->pid;
 					// #ifdef PBS
 					*rtime = np->runTime;
-					printf("%d %d %d\n", np->endTime, np->creationTime, np->runTime);
+					// printf("%d %d %d\n", np->endTime, np->creationTime, np->runTime);
 					*wtime = np->endTime - np->creationTime - np->runTime;
 					// #endif
 					if (addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
@@ -693,7 +693,7 @@ int wait(uint64 addr)
 		}
 
 		// No point waiting if we don't have any children.
-		if (!havekids || killed(p))
+		if (!havekids || p->killed)
 		{
 			release(&wait_lock);
 			return -1;
@@ -710,6 +710,8 @@ void upd_time(void)
 	while (pr < &proc[NPROC])
 	{
 		acquire(&pr->lock);
+		// if(pr->state == 3 || pr->state == 4 || pr->state == 2)
+		// 	printf("%s %d\n", pr->name, pr->state);
 		if (pr->state == RUNNING)
 		{
 			// #ifdef PBS
@@ -832,6 +834,7 @@ void scheduler(void)
 				// to release its lock and then reacquire it
 				// before jumping back to us.
 				p->state = RUNNING;
+				// printf("%s %d\n", p->name, p->state);
 				c->proc = p;
 				swtch(&c->context, &p->context);
 

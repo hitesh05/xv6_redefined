@@ -27,6 +27,59 @@ void trapinithart(void)
 	w_stvec((uint64)kernelvec);
 }
 
+int cowalloc(pagetable_t pagetable, uint64 va)
+{
+	// ** va must be PGSIZE aligned
+	// if ((va % PGSIZE) != 0)
+	// 	return -1;
+
+	if (va == 0)
+		return -1;
+
+	// ** safety check
+	if (va >= MAXVA)
+		return -1;
+
+	pte_t *pte = walk(pagetable, va, 0);
+	if (pte == 0)
+		return -1;
+	if ((*pte & PTE_U) == 0 || (*pte & PTE_V) == 0)
+		return -1;
+
+	uint64 pa = PTE2PA(*pte);
+	// if (pa == 0)
+	// 	return -1;
+
+	// printf("here\n");
+
+	// ** If page fault is raised with a COW page,
+	// ** alloc a physical page, mapped to user pagetable and set PTE_W
+	if (*pte & PTE_C)
+	{
+		// uint flags = PTE_FLAGS(*pte);
+		// flags = (flags & ~PTE_C) | PTE_W;
+		// ** allocate new page
+		// char *ka = kalloc();
+		uint64 ka = (uint64)kalloc();
+		if (ka == 0)
+			return -1;
+		// ** don't forget to copy old content
+		memmove((void *)ka, (void *)pa, PGSIZE);
+
+		*pte = PA2PTE(ka) | PTE_U | PTE_V | PTE_W | PTE_X | PTE_R;
+		*pte &= (~PTE_C);
+		// ** free old memory mapping
+		// uvmunmap(pagetable, PGROUNDUP(va), 1, 1);
+		// ** clear COW bit and set the page writable
+		// mappages(pagetable, va, PGSIZE, (uint64)ka, flags);
+		krefdecr(pa);
+		// kfree((void *)pa);
+		return 0;
+	}
+
+	return 0;
+}
+
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -51,7 +104,7 @@ void usertrap(void)
 	{
 		// system call
 
-		if (killed(p))
+		if (p->killed)
 			exit(-1);
 
 		// sepc points to the ecall instruction,
@@ -63,6 +116,19 @@ void usertrap(void)
 		intr_on();
 
 		syscall();
+	}
+	else if (r_scause() == 15)
+	{ // page fault
+		// uint64 addr = r_stval();
+		// // ** If virtual address is over maximum va size or within guard page, kill the process
+		// if (addr >= MAXVA || (addr < p->trapframe->sp && addr >= (p->trapframe->sp - PGSIZE)))
+		// 	setkilled(p);
+		// if (cowalloc(p->pagetable, PGROUNDDOWN(addr)) < 0)
+		// 	setkilled(p);
+		if (cowalloc(p->pagetable, r_stval()) < 0)
+		{
+			setkilled(p);
+		}
 	}
 	else if ((which_dev = devintr()) != 0)
 	{
@@ -187,7 +253,6 @@ void kerneltrap()
 
 	// give up the CPU if this is a timer interrupt.
 	// checkthis
-
 #ifdef DEFAULT
 	if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
 		yield();

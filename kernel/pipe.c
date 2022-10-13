@@ -108,6 +108,7 @@ piperead(struct pipe *pi, uint64 addr, int n)
   int i;
   struct proc *pr = myproc();
   char ch;
+  // printf("here1\n");
 
   acquire(&pi->lock);
   while(pi->nread == pi->nwrite && pi->writeopen){  //DOC: pipe-empty
@@ -124,6 +125,7 @@ piperead(struct pipe *pi, uint64 addr, int n)
     if(copyout(pr->pagetable, addr + i, &ch, 1) == -1)
       break;
   }
+  // printf("here2\n");
   wakeup(&pi->nwrite);  //DOC: piperead-wakeup
   release(&pi->lock);
   return i;
