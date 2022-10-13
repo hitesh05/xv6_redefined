@@ -47,8 +47,8 @@ int cowalloc(pagetable_t pagetable, uint64 va)
 		return -1;
 
 	uint64 pa = PTE2PA(*pte);
-	// if (pa == 0)
-	// 	return -1;
+	if (pa == 0)
+		return -1;
 
 	// printf("here\n");
 
@@ -56,8 +56,8 @@ int cowalloc(pagetable_t pagetable, uint64 va)
 	// ** alloc a physical page, mapped to user pagetable and set PTE_W
 	if (*pte & PTE_C)
 	{
-		// uint flags = PTE_FLAGS(*pte);
-		// flags = (flags & ~PTE_C) | PTE_W;
+		uint flags = PTE_FLAGS(*pte);
+		flags = (flags & ~PTE_C) | PTE_W;
 		// ** allocate new page
 		// char *ka = kalloc();
 		uint64 ka = (uint64)kalloc();
@@ -72,9 +72,8 @@ int cowalloc(pagetable_t pagetable, uint64 va)
 		// uvmunmap(pagetable, PGROUNDUP(va), 1, 1);
 		// ** clear COW bit and set the page writable
 		// mappages(pagetable, va, PGSIZE, (uint64)ka, flags);
-		krefdecr(pa);
+		krefdecr((void *)pa);
 		// kfree((void *)pa);
-		return 0;
 	}
 
 	return 0;
@@ -119,16 +118,16 @@ void usertrap(void)
 	}
 	else if (r_scause() == 15)
 	{ // page fault
-		// uint64 addr = r_stval();
+		uint64 addr = r_stval();
 		// // ** If virtual address is over maximum va size or within guard page, kill the process
-		// if (addr >= MAXVA || (addr < p->trapframe->sp && addr >= (p->trapframe->sp - PGSIZE)))
-		// 	setkilled(p);
-		// if (cowalloc(p->pagetable, PGROUNDDOWN(addr)) < 0)
-		// 	setkilled(p);
-		if (cowalloc(p->pagetable, r_stval()) < 0)
-		{
+		if (addr >= MAXVA || (addr < p->trapframe->sp && addr >= (p->trapframe->sp - PGSIZE)))
 			setkilled(p);
-		}
+		if (cowalloc(p->pagetable, PGROUNDDOWN(addr)) < 0)
+			setkilled(p);
+		// if (cowalloc(p->pagetable, r_stval()) < 0)
+		// {
+		// 	setkilled(p);
+		// }
 	}
 	else if ((which_dev = devintr()) != 0)
 	{

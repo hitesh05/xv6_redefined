@@ -31,15 +31,15 @@ struct
 	int count[PHYSTOP / PGSIZE];
 } refcnt;
 
-void krefincr(uint64 pa)
+void krefincr(void *pa)
 {
 	// acquire(&refcnt.lock);
 	// int pn = (uint64)pa / PGSIZE;
 	// refcnt.count[pn]++;
 	// release(&refcnt.lock);
 	acquire(&kmem.lock);
-	int pn = pa / PGSIZE;
-	if (pa > PHYSTOP)
+	int pn = (uint64)pa / PGSIZE;
+	if ((uint64)pa > PHYSTOP)
 	{
 		panic("Physical Address limit exceeded");
 	}
@@ -50,7 +50,7 @@ void krefincr(uint64 pa)
 	release(&kmem.lock);
 }
 
-void krefdecr(uint64 pa)
+void krefdecr(void *pa)
 {
 	// acquire(&refcnt.lock);
 	// int pn = (uint64)pa / PGSIZE;
@@ -59,16 +59,13 @@ void krefdecr(uint64 pa)
 	// printf("here\n");
 	acquire(&kmem.lock);
 	// printf("here1\n");
-	int pn = pa / PGSIZE;
-	if (pa > PHYSTOP)
+	int pn = (uint64)pa / PGSIZE;
+	if ((uint64)pa > PHYSTOP)
 	{
 		panic("Physical Address limit exceeded");
 	}
-	// if ((uint64)pa > PHYSTOP)
-	// 	panic("krefdecr");
 
 	refcnt.count[pn]--;
-	// printf("%d\n", refcnt.count[pn]);
 	release(&kmem.lock);
 }
 
@@ -136,19 +133,12 @@ void kfree(void *pa)
 	}
 	release(&kmem.lock);
 
-	struct run *d;
-
-	if (((uint64)pa % PGSIZE) != 0 || (char *)pa < end || (uint64)pa >= PHYSTOP)
-		panic("kfree");
-
 	// Fill with junk to catch dangling refs.
 	memset(pa, 1, PGSIZE);
 
-	d = (struct run *)pa;
-
 	acquire(&kmem.lock);
-	d->next = kmem.freelist;
-	kmem.freelist = d;
+	r->next = kmem.freelist;
+	kmem.freelist = r;
 	release(&kmem.lock);
 }
 

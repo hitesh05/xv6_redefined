@@ -331,13 +331,13 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 		// ** Set flags only when the page is writable because it is must not a COW page
 		if (flags & PTE_W)
 		{
-			flags &= (~PTE_W);
-			// flags = (flags | PTE_C) & (~PTE_W);
+			// flags &= (~PTE_W);
+			flags = (flags | PTE_C) & (~PTE_W);
 			// *pte = (*pte & ~PTE_W) | PTE_C;
 		}
 		flags |= PTE_C;
-		krefincr(pa);
-		sfence_vma();
+		krefincr((void *)pa);
+		// sfence_vma();
 
 		// if ((mem = kalloc()) == 0)
 		//   goto err;
