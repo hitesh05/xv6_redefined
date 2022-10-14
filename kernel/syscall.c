@@ -99,9 +99,11 @@ extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_trace(void); // prototype for sys_trace added
 extern uint64 sys_sigalarm(void);
-extern uint64 sys_settickets(void); // for LBS
-extern uint64 sys_setpriority(void);// added for PBS scheduler
+extern uint64 sys_settickets(void);  // for LBS
+extern uint64 sys_setpriority(void); // added for PBS scheduler
 extern uint64 sys_waitx(void);
+extern uint64 sys_sigreturn(void);
+
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -128,10 +130,11 @@ static uint64 (*syscalls[])(void) = {
     [SYS_mkdir] sys_mkdir,
     [SYS_close] sys_close,
     [SYS_trace] sys_trace, // mapped sys_trace to syscall number (22)
-    [SYS_sigalarm] sys_sigalarm,
     [SYS_setpriority] sys_setpriority,
     [SYS_settickets] sys_settickets,
-    [SYS_waitx]   sys_waitx,
+    [SYS_waitx] sys_waitx,
+    [SYS_sigalarm] sys_sigalarm,
+    [SYS_sigreturn] sys_sigreturn,
 
 };
 
@@ -167,7 +170,9 @@ info syscall_info[] = {
     {"sigalarm", 2},
     {"setpriority", 2}, // CHECK
     {"settickets", 1},
-    {"waitx",3}
+    {"waitx", 3},
+    {"sigalarm", 2},
+    {"sigreturn", 0},
 };
 
 void syscall(void)
