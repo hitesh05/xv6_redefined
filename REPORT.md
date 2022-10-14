@@ -20,6 +20,7 @@ execution.</li>
 calls to trace</li>
 </ul>
 
+
 To make a syscall following steps are done: 
 
 <ul> <li>Open file syscall.h and usys.pl and add the syscall</li> <li>Open file sysproc.c and add the file definition </li></ul>
@@ -49,6 +50,7 @@ Now we'll modify the proc functions, open the following files
     <li>Open proc.c and modify fork()</li>
 <li>Add new file strace.c</li>
 </ul>
+
 
 Similarly we can add other system call, sigalarm and sigreturn by changing the similar above files and add a new condition in trap.c
 
@@ -93,6 +95,7 @@ int maxticks;
     A new variable ctime was added in struct proc to store the creation time of the process in allocproc</li>
 </ul>
 
+
 ```
 			intr_on();
 			struct proc *check = NULL;
@@ -136,6 +139,7 @@ int maxticks;
 added to change the static priority of the process and reschedule it if its dynamic priority decreased
 as a result of change. This is done in a similar way to which above system call is explained. </li>
 </ul>
+
 
 ```
 intr_on();
@@ -203,6 +207,106 @@ intr_on();
 </ul>
 
 
+```
+#ifdef MLFQ
+struct proc *mlfq_sched(void)
+{
+	// aging
+	struct proc *pr = proc;
+	int x = NPROC;
+	while (pr < &proc[x])
+	{
+		if (pr->state == RUNNABLE)
+		{
+			if (ticks - pr->enter_time >= 256)
+			{
+				int test = pr->in_queue;
+				if (test)
+				{
+					int level = pr->curr_queue;
+					qerase(&mlfq[level], pr->pid);
+					pr->in_queue = 0;
+				}
+				if (pr->curr_queue != 0)
+				{
+					pr->curr_queue--;
+				}
+				else
+				{
+					pr->curr_queue = 0;
+				}
+
+				pr->enter_time = ticks;
+			}
+		}
+		pr++;
+	}
+
+	pr = proc;
+	while (pr < &proc[x])
+	{
+		if (pr->state == RUNNABLE)
+		{
+			int test = pr->in_queue;
+			if (!test)
+			{
+				int level = pr->curr_queue;
+				push(&mlfq[level], pr);
+				pr->in_queue = 1;
+			}
+		}
+		pr++;
+	}
+
+	int lev = 0;
+	while (lev < num_levels)
+	{
+
+		while (mlfq[lev].size)
+		{
+			struct proc *pr = front(&mlfq[lev]);
+			pop(&mlfq[lev]);
+			pr->in_queue = 0;
+			if (pr->state != RUNNABLE)
+			{
+				continue;
+			}
+			else
+			{
+				pr->enter_time = ticks;
+				return pr;
+			}
+		}
+		lev++;
+	}
+
+	return 0;
+}
+#endif
+
+#ifdef MLFQ
+	p = mlfq_sched();
+	if (!p)
+	{
+		continue;
+	}
+	else
+	{
+		// acquire(&p->lock);
+		int slices[5] = {1, 2, 4, 8, 16};
+		int level = p->curr_queue;
+		p->time_slice = slices[level];
+		c->proc = p;
+		p->state = RUNNING;
+		swtch(&c->context, &p->context);
+		c->proc = 0;
+		p->enter_time = ticks;
+		// release(&p->lock);
+	}
+#endif
+```
+
+
 
 ### LBS
 
@@ -212,7 +316,57 @@ proportion to the number of tickets it owns. </li>
     <li>It assigns the tickets using the rand() function i.e. randomly hence the name lottery based scheduler. This means the tickets and cycles will be random and implemented as detailed</li>
 </ul>
 
+
+```
+#ifdef LBS
+	for (p = proc; p < &proc[NPROC]; p++)
+	{
+		acquire(&p->lock);
+		if (p->state == RUNNABLE)
+		{
+			// Switch to chosen process.  It is the process's job
+			// to release its lock and then reacquire it
+			// before jumping back to us.
+			p->time_avail = (rand() % 64) * p->tickets;
+			p->state = RUNNING;
+			c->proc = p;
+			swtch(&c->context, &p->context);
+
+			// Process is done running for now.
+			// It should have changed its p->state before coming back.
+			c->proc = 0;
+		}
+		release(&p->lock);
+	}
+	#endif
+```
+
 ### Task 3
 
 ### Copy on Write Fork
 
+**Fork's Problem**
+The fork() system call in xv6 copies all of the parent process’s user-space memory into the child. If the parent is large, copying can take a long time. Worse, the work is often largely wasted; for example, a fork() followed by exec() in the child will cause the child to discard the copied memory, probably without ever using most of it. On the other hand, if both parent and child use a page, and one or both writes it, a copy is truly needed.
+
+**Implementation**
+The goal of copy-on-write (COW) fork() is to defer allocating and copying physical memory pages for the child until the copies are actually needed, if ever.
+
+1. *riscv.h:* First, we add the flag that represents the COW page in riscv.h
+2. *uvmvopy() in vm.c:* The original fork() calls uvmcopy to configure new physical pages for the child process and copy the contents of the parent process. But now we just need:
+   1. Mark duplicate pages as COW
+   2. Cancel copy page writable flag PTE_W
+   3. The virtual memory of the child process is mapped to the copied page. \
+
+In this way, when trying to modify the memory content later, the page fault can be triggered, and when entering the trap process, we can determine the processing method through the COW flag.
+
+3. *usertrap() in trap.c:* Usertrap needs to add page fault capture judgment. In addition, because it is COW, we only care about page fault (sscause = 15) caused by store instruction. It should be noted here that users may maliciously pass in illegal addresses that exceed the virtual address space or fall on the guard page. The legality of the address must be judged first. If it is a legal address, call the wrapped execution function *owalloc to perform COW related processing
+
+4. *cowalloc() in trap.c:* cowalloc first judges the validity of the virtual address, and then judges whether the corresponding pte is marked as a COW page. If the flag exists, it configures a new physical page for the child process, copies the content of the parent process, deletes the original old mapping, and finally remaps To a new physical page, because the page is no longer a COW page, remember to cancel the setting of PTE_C and make the physical page writable
+
+5. *copyout() in vm.c:*  If the page is a COW page, a page fault will be triggered, but at this time we are in the kernel space, and the trap process cannot enter. usertrap, so here we also call cowalloc to process the virtual page. 
+
+6. Necessary changes made in *kalloc.c.* 
+
+### How MLFQ policy could be exploited by a process?
+
+A process can exploit the wakeup and go to sleep just before it's time quantum gets over by voluntarilt giving up its time slice to stay in higher priority queues. Since it gives up control voluntarily, it will keep coming back in the same queue.
