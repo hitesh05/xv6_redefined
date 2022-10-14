@@ -102,15 +102,6 @@ sys_trace(void)
 }
 
 uint64
-sys_sigalarm(void)
-{
-  int n;
-  argint(0, &n);
-  myproc()->ticks0 = 0;
-  return 0;
-}
-
-uint64
 sys_setpriority(void)
 {
   int priority;
@@ -143,4 +134,29 @@ sys_waitx(void)
   if (copyout(p->pagetable, addr2,(char*)&rtime, sizeof(int)) < 0)
     return -1;
   return ret;
+}
+uint64 sys_sigalarm(void)
+{
+  uint64 addr;
+  int ticks;
+  argint(0, &ticks);
+  argaddr(1, &addr);
+  // if(argaddr(1, &addr) < 0)
+  //   return -1;
+
+  myproc()->maxticks = ticks;
+  myproc()->handler = addr;
+
+  return 0;
+}
+uint64 sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+  memmove(p->trapframe, p->alarm_handler, PGSIZE);
+
+  kfree(p->alarm_handler);
+  p->alarm_handler = 0;
+  p->checkifAlarmOn = 0;
+  p->sigticks = 0;
+  return p->trapframe->a0;
 }

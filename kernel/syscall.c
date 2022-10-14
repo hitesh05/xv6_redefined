@@ -102,7 +102,7 @@ extern uint64 sys_sigalarm(void);
 extern uint64 sys_settickets(void); // for LBS
 extern uint64 sys_setpriority(void);// added for PBS scheduler
 extern uint64 sys_waitx(void);
-
+extern uint64 sys_sigreturn(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -132,6 +132,8 @@ static uint64 (*syscalls[])(void) = {
     [SYS_setpriority] sys_setpriority,
     [SYS_settickets] sys_settickets,
     [SYS_waitx]   sys_waitx,
+        [SYS_sigreturn] sys_sigreturn,
+
 
 };
 
@@ -167,7 +169,9 @@ info syscall_info[] = {
     {"sigalarm", 2},
     {"setpriority", 2}, // CHECK
     {"settickets", 1},
-    {"waitx",3}
+    {"waitx",3},
+        {"sigreturn", 0},
+
 };
 
 void syscall(void)

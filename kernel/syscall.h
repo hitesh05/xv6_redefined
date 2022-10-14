@@ -25,3 +25,5 @@
 #define SYS_setpriority 24
 #define SYS_settickets 25
 #define SYS_waitx  26
+#define SYS_sigreturn 27
+#define SYS_alarmtest 28
