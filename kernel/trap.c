@@ -132,21 +132,21 @@ void usertrap(void)
 	else if ((which_dev = devintr()) != 0)
 	{
 		// ok
-		if (p != 0 && which_dev == 2 && p->checkifAlarmOn == 0)
-		{
-			// Save trapframe
+		// if (p != 0 && which_dev == 2 && p->checkifAlarmOn == 0)
+		// {
+		// 	// Save trapframe
 
-			p->sigticks++;
-			if (p->sigticks >= p->maxticks)
-			{
-				p->checkifAlarmOn = 1;
-				struct trapframe *tf = kalloc();
-				memmove(tf, p->trapframe, PGSIZE);
-				p->alarm_handler = tf;
+		// 	p->sigticks++;
+		// 	if (p->sigticks >= p->maxticks)
+		// 	{
+		// 		p->checkifAlarmOn = 1;
+		// 		struct trapframe *tf = kalloc();
+		// 		memmove(tf, p->trapframe, PGSIZE);
+		// 		p->alarm_handler = tf;
 
-				p->trapframe->epc = p->handler;
-			}
-		}
+		// 		p->trapframe->epc = p->handler;
+		// 	}
+		// }
 	}
 	else // trap caused by incorrect behaviour. prints details of the user program and sets cp->killed to clean up the process then exits
 	{
