@@ -7,6 +7,8 @@
 #include "defs.h"
 #include "stdlib.h"
 
+#define AGE 36
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -27,10 +29,45 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-#ifdef MLFQ
-const int num_levels = 5;
-Queue mlfq[5];
-#endif
+// #ifdef MLFQ
+// const int num_levels = 5;
+// Queue mlfq[5];
+// #endif
+
+/* This method is used to generate a random number, between 0 and max*/
+int random_lbs(int max)
+{
+
+	if (max <= 0)
+	{
+		return 1;
+	}
+
+	static int z1 = 12345; // 12345 for rest of zx
+	static int z2 = 12345; // 12345 for rest of zx
+	static int z3 = 12345; // 12345 for rest of zx
+	static int z4 = 12345; // 12345 for rest of zx
+
+	int b;
+	b = (((z1 << 6) ^ z1) >> 13);
+	z1 = (((z1 & 4294967294) << 18) ^ b);
+	b = (((z2 << 2) ^ z2) >> 27);
+	z2 = (((z2 & 4294967288) << 2) ^ b);
+	b = (((z3 << 13) ^ z3) >> 21);
+	z3 = (((z3 & 4294967280) << 7) ^ b);
+	b = (((z4 << 3) ^ z4) >> 12);
+	z4 = (((z4 & 4294967168) << 13) ^ b);
+
+	// if we have an argument, then we can use it
+	int rand = ((z1 ^ z2 ^ z3 ^ z4)) % max;
+
+	if (rand < 0)
+	{
+		rand = rand * -1;
+	}
+
+	return rand;
+}
 
 // #ifdef PBS
 int calculateDynamicPriority(struct proc *process)
@@ -97,85 +134,85 @@ int set_priority(int static_prior, int pid)
 	return old_prior;
 }
 
-#ifdef MLFQ
-void pinit(void)
-{
-	int i = 0;
-	while (i < num_levels)
-	{
-		mlfq[i].head = 0;
-		mlfq[i].tail = 0;
-		mlfq[i].size = 0;
-		i++;
-	}
-}
+// #ifdef MLFQ
+// void pinit(void)
+// {
+// 	int i = 0;
+// 	while (i < num_levels)
+// 	{
+// 		mlfq[i].head = 0;
+// 		mlfq[i].tail = 0;
+// 		mlfq[i].size = 0;
+// 		i++;
+// 	}
+// }
 
-void push(Queue *q, struct proc *pr)
-{
-	int tail = q->tail;
-	q->p[tail] = pr;
-	q->tail++;
+// void push(Queue *q, struct proc *pr)
+// {
+// 	int tail = q->tail;
+// 	q->p[tail] = pr;
+// 	q->tail++;
 
-	int x = NPROC + 1;
-	if (q->tail == x)
-	{
-		q->tail = 0;
-	}
-	q->size++;
-}
+// 	int x = NPROC + 1;
+// 	if (q->tail == x)
+// 	{
+// 		q->tail = 0;
+// 	}
+// 	q->size++;
+// }
 
-void pop(Queue *q)
-{
-	q->head++;
-	int x = NPROC + 1;
-	if (q->head == x)
-	{
-		q->head = 0;
-	}
+// void pop(Queue *q)
+// {
+// 	q->head++;
+// 	int x = NPROC + 1;
+// 	if (q->head == x)
+// 	{
+// 		q->head = 0;
+// 	}
 
-	q->size--;
-}
+// 	q->size--;
+// }
 
-struct proc *front(Queue *q)
-{
-	if (q->head != q->tail)
-	{
-		return q->p[q->head];
-	}
-	else
-	{
-		return 0;
-	}
-}
+// struct proc *front(Queue *q)
+// {
+// 	if (q->head != q->tail)
+// 	{
+// 		return q->p[q->head];
+// 	}
+// 	else
+// 	{
+// 		return 0;
+// 	}
+// }
 
-void qerase(Queue *q, int pid)
-{
-	int head = q->head;
-	int tail = q->tail;
-	int x = NPROC + 1;
+// void qerase(Queue *q, int pid)
+// {
+// 	int head = q->head;
+// 	int tail = q->tail;
+// 	int x = NPROC + 1;
 
-	for (int curr = head; curr != tail; curr = (curr + 1) % x)
-	{
-		if (q->p[curr]->pid != pid)
-		{
-			continue;
-		}
-		struct proc *pr = q->p[curr];
-		int z = (curr + 1) % x;
-		q->p[curr] = q->p[z];
-		q->p[z] = pr;
-	}
-	if (q->tail == 0)
-	{
-		q->tail = NPROC;
-	}
-	else
-	{
-		q->tail--;
-	}
-	q->size--;
-}
-#endif
+// 	for (int curr = head; curr != tail; curr = (curr + 1) % x)
+// 	{
+// 		if (q->p[curr]->pid != pid)
+// 		{
+// 			continue;
+// 		}
+// 		struct proc *pr = q->p[curr];
+// 		int z = (curr + 1) % x;
+// 		q->p[curr] = q->p[z];
+// 		q->p[z] = pr;
+// 	}
+// 	if (q->tail == 0)
+// 	{
+// 		q->tail = NPROC;
+// 	}
+// 	else
+// 	{
+// 		q->tail--;
+// 	}
+// 	q->size--;
+// }
+// #endif
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -278,29 +315,32 @@ found:
 	p->pid = allocpid();
 	p->state = USED;
 
-#ifdef LBS
+	// #ifdef LBS
 	// lbs init
 	p->tickets = 1;
 	p->time_spent = 0;
-	p->time_avail = 0;
-#endif
+	p->time_avail = 1;
+	// #endif
 
 #ifdef MLFQ
-	// mlfq init
-	int slices[5] = {1, 2, 4, 8, 16};
-	p->curr_queue = 0;
-	p->ticks_spent = 0;
-	p->enter_time = ticks;
-	p->time_slice = slices[p->curr_queue];
-	p->in_queue = 0;
-	int i = 0;
-	while (i < num_levels)
+	p->priority_level = 0;
+	p->ass_ticks = 1;
+	p->ticks_elapsed = 0;
+	for (int i = 0; i < 5; i++)
 	{
-		p->queue[i] = 0;
-		i++;
+		p->queue_ticks[i] = 0;
 	}
-//
+
 #endif
+	// PBS declaration
+	p->creationTime = ticks;
+	p->sprior = 60;
+	p->niceness = 5;
+	p->runTime = 0;
+	p->endTime = 0;
+	p->runTimePrev = 0;
+	p->sleepTimePrev = 0;
+	p->sleepStartTime = 0;
 
 	// Allocate a trapframe page.
 	if ((p->trapframe = (struct trapframe *)kalloc()) == 0)
@@ -326,15 +366,6 @@ found:
 	p->context.sp = p->kstack + PGSIZE;
 
 	// #ifdef PBS
-	// PBS declaration
-	p->creationTime = ticks;
-	p->sprior = 60;
-	p->niceness = 5;
-	p->runTime = 0;
-	p->endTime = 0;
-	p->runTimePrev = 0;
-	p->sleepTimePrev = 0;
-	p->sleepStartTime = 0;
 	// #endif
 
 	return p;
@@ -580,8 +611,11 @@ int fork(void) // checkthis
 	release(&np->lock);
 
 #ifdef MLFQ
-	push(&mlfq[0], np);
-	np->in_queue = 1;
+	if (p->priority_level > 0) // pre-empt when a new process enters higher level queue
+	{
+		p->ticks_elapsed = 0;
+		yield();
+	}
 #endif
 
 	return pid;
@@ -722,8 +756,9 @@ void upd_time(void)
 			pr->time_spent++;
 #endif
 #ifdef MLFQ
-			pr->queue[pr->curr_queue]++;
-			pr->time_slice--;
+			pr->queue_ticks[pr->priority_level]++;
+			pr->wait_time++;
+
 #endif
 		}
 		release(&pr->lock);
@@ -732,78 +767,18 @@ void upd_time(void)
 }
 
 #ifdef MLFQ
-struct proc *mlfq_sched(void)
+void aging_check()
 {
-	// aging
-	struct proc *pr = proc;
-	int x = NPROC;
-	while (pr < &proc[x])
+	struct proc *p;
+	for (p = proc; p < &proc[NPROC]; p++)
 	{
-		if (pr->state == RUNNABLE)
+		if ((p->state == SLEEPING || p->state == RUNNABLE) && p->wait_time > AGE && p->priority_level != 0)
 		{
-			if (ticks - pr->enter_time >= 256)
-			{
-				int test = pr->in_queue;
-				if (test)
-				{
-					int level = pr->curr_queue;
-					qerase(&mlfq[level], pr->pid);
-					pr->in_queue = 0;
-				}
-				if (pr->curr_queue != 0)
-				{
-					pr->curr_queue--;
-				}
-				else
-				{
-					pr->curr_queue = 0;
-				}
-
-				pr->enter_time = ticks;
-			}
+			p->wait_time = 0;
+			p->priority_level--;
+			p->ass_ticks /= 2;
 		}
-		pr++;
 	}
-
-	pr = proc;
-	while (pr < &proc[x])
-	{
-		if (pr->state == RUNNABLE)
-		{
-			int test = pr->in_queue;
-			if (!test)
-			{
-				int level = pr->curr_queue;
-				push(&mlfq[level], pr);
-				pr->in_queue = 1;
-			}
-		}
-		pr++;
-	}
-
-	int lev = 0;
-	while (lev < num_levels)
-	{
-
-		while (mlfq[lev].size)
-		{
-			struct proc *pr = front(&mlfq[lev]);
-			pop(&mlfq[lev]);
-			pr->in_queue = 0;
-			if (pr->state != RUNNABLE)
-			{
-				continue;
-			}
-			else
-			{
-				pr->enter_time = ticks;
-				return pr;
-			}
-		}
-		lev++;
-	}
-
-	return 0;
 }
 #endif
 
@@ -846,24 +821,29 @@ void scheduler(void)
 		}
 #endif
 #ifdef LBS
-		for (p = proc; p < &proc[NPROC]; p++)
+		for (;;)
 		{
-			acquire(&p->lock);
-			if (p->state == RUNNABLE)
+			intr_on();
+			for (p = proc; p < &proc[NPROC]; p++)
 			{
-				// Switch to chosen process.  It is the process's job
-				// to release its lock and then reacquire it
-				// before jumping back to us.
-				p->time_avail = (rand() % 64) * p->tickets;
-				p->state = RUNNING;
-				c->proc = p;
-				swtch(&c->context, &p->context);
+				acquire(&p->lock);
+				if (p->state == RUNNABLE)
+				{
+					// Switch to chosen process.  It is the process's job
+					// to release its lock and then reacquire it
+					// before jumping back to us.
+					// p->time_avail = (rand() % 64) * p->tickets;
+					p->time_avail = (random_lbs(100) % 7) * p->tickets;
+					p->state = RUNNING;
+					c->proc = p;
+					swtch(&c->context, &p->context);
 
-				// Process is done running for now.
-				// It should have changed its p->state before coming back.
-				c->proc = 0;
+					// Process is done running for now.
+					// It should have changed its p->state before coming back.
+					c->proc = 0;
+				}
+				release(&p->lock);
 			}
-			release(&p->lock);
 		}
 #endif
 #ifdef FCFS
@@ -872,23 +852,29 @@ void scheduler(void)
 			// Avoid deadlock by ensuring that devices can interrupt.
 			intr_on();
 			struct proc *check = NULL;
+
 			for (p = proc; p < &proc[NPROC]; p++)
 			{
+				acquire(&p->lock);
 				if (p->state == RUNNABLE)
 				{
 					if (check == NULL)
 					{
 						check = p;
+						continue;
 					}
-					else if (p->creationTime < check->creationTime)
+					if (p->creationTime < check->creationTime)
 					{
+						release(&p->lock);
 						check = p;
+						continue;
 					}
 				}
+				release(&p->lock);
 			}
 			if (check != NULL)
 			{
-				acquire(&check->lock);
+				// acquire(&check->lock);
 
 				// Switch to chosen process.  It is the process's job
 				// to release its lock and then reacquire it
@@ -919,31 +905,37 @@ void scheduler(void)
 					if (check == NULL)
 					{
 						check = p;
+						continue;
 					}
 					else if (p->dprior < check->dprior)
 					{
+						release(&check->lock);
 						check = p;
+						continue;
 					}
 					else if (p->dprior == check->dprior)
 					{
 						if (p->countTimeCalled < check->countTimeCalled) // checkthis
 						{
+							release(&check->lock);
 							check = p;
 						}
 						else if (p->countTimeCalled == check->countTimeCalled) // checkthis
 						{
 							if (p->creationTime > check->creationTime)
 							{
+								release(&check->lock);
 								check = p;
 							}
 						}
+						continue;
 					}
 				}
 				release(&p->lock);
 			}
 			if (check != NULL)
 			{
-				acquire(&check->lock);
+				// acquire(&check->lock);
 
 				// Switch to chosen process.  It is the process's job
 				// to release its lock and then reacquire it
@@ -963,25 +955,91 @@ void scheduler(void)
 			}
 		}
 #endif
-
 #ifdef MLFQ
-		p = mlfq_sched();
-		if (!p)
+		int min_time = -7;
+		// int req_proc_no = -1;
+		struct proc *check;
+		int found = -1;
+
+		for (;;)
 		{
-			continue;
-		}
-		else
-		{
-			// acquire(&p->lock);
-			int slices[5] = {1, 2, 4, 8, 16};
-			int level = p->curr_queue;
-			p->time_slice = slices[level];
-			c->proc = p;
-			p->state = RUNNING;
-			swtch(&c->context, &p->context);
-			c->proc = 0;
-			p->enter_time = ticks;
-			// release(&p->lock);
+			intr_on();
+			min_time = -1;
+			// ct = 0;
+
+			aging_check();
+
+			for (int i = 0; i < 4; i++) // FCFS for first 4 levels
+			{
+				for (p = proc; p < &proc[NPROC]; p++)
+				{
+					acquire(&p->lock);
+					if (p->state == RUNNABLE && p->priority_level == i)
+					{
+						if (min_time == -1)
+						{
+							min_time = p->ctime;
+							check = p;
+							// req_proc_no = ct;
+							// ct++;
+							continue;
+						}
+						else if (p->ctime < check->ctime)
+						{
+							release(&check->lock);
+							min_time = p->ctime;
+							check = p;
+							// req_proc_no = ct;
+							// ct++;
+							continue;
+						}
+					}
+					// else
+					// {
+					release(&p->lock);
+					// }
+					// ct++;
+				}
+				if (min_time == -1)
+				{
+					continue;
+				}
+				else
+				{
+					// struct proc *final = &proc[req_proc_no];
+					check->state = RUNNING;
+					check->wait_time = 0;
+					c->proc = check;
+					swtch(&c->context, &check->context);
+
+					c->proc = 0;
+					release(&check->lock);
+					found = 1;
+					break;
+				}
+			}
+
+			if (min_time == -1) // RR for last priority level
+			{
+				for (p = proc; p < &proc[NPROC]; p++)
+				{
+					acquire(&p->lock);
+					if (p->state == RUNNABLE && p->priority_level == 4)
+					{
+						// Switch to chosen process.  It is the process's job
+						// to release its lock and then reacquire it
+						// before jumping back to us.
+						p->state = RUNNING;
+						c->proc = p;
+						swtch(&c->context, &p->context);
+
+						// Process is done running for now.
+						// It should have changed its p->state before coming back.
+						c->proc = 0;
+					}
+					release(&p->lock);
+				}
+			}
 		}
 #endif
 	}
@@ -1099,12 +1157,7 @@ void wakeup(void *chan)
 				}
 // #endif
 #ifdef MLFQ
-				p->enter_time = ticks;
-				p->queue[p->curr_queue] = 0;
-				p->in_queue = 1;
-				int slices[5] = {1, 2, 4, 8, 16};
-				p->time_slice = slices[p->curr_queue];
-				push(&mlfq[p->curr_queue], p);
+				p->ticks_elapsed = 0;
 #endif
 			}
 			release(&p->lock);
@@ -1136,12 +1189,7 @@ int kill(int pid)
 				// Wake process from sleep().
 				p->state = RUNNABLE;
 #ifdef MLFQ
-				p->enter_time = ticks;
-				p->queue[p->curr_queue] = 0;
-				p->in_queue = 1;
-				int slices[5] = {1, 2, 4, 8, 16};
-				p->time_slice = slices[p->curr_queue];
-				push(&mlfq[p->curr_queue], p);
+				p->ticks_elapsed = 0;
 #endif
 			}
 			release(&p->lock);
@@ -1227,11 +1275,29 @@ void procdump(void)
 			state = states[p->state];
 		else
 			state = "???";
+
+#ifdef PBS
+		printf("Run time: %d\n", p->runTime);
+#endif
+#ifdef MLFQ
+		for (int j = 0; j < 5; j++)
+			printf("%d ", p->queue_ticks[j]);
+		printf("\n");
+#endif
 		printf("%d %s %s %d %d", p->pid, state, p->name, p->runTime, p->countTimeCalled);
 		printf("\n");
 	}
 }
 
-// int settickets(int num){
+int set_tickets(int no_of_tickets)
+{
+#ifdef LBS
 
-// }
+	struct proc *p;
+	p = myproc();
+
+	p->tickets = no_of_tickets;
+
+#endif
+	return 1;
+}

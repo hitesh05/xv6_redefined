@@ -164,34 +164,32 @@ void usertrap(void)
 		yield();
 #endif
 #ifdef LBS
-	if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+	// acquire(&myproc()->lock);
+	if (which_dev == 2)
 	{
-		struct proc *pr = myproc();
-		if (pr->time_avail == pr->time_spent)
+		struct proc *p = myproc();
+		p->time_spent += 1;
+		if (p->time_spent >= p->time_avail)
 		{
+			p->time_spent = 0;
 			yield();
 		}
 	}
+	// release(&myproc()->lock);
 #endif
 #ifdef MLFQ
 	if (which_dev == 2)
 	{
-		int x = 0;
-		if (myproc() != x)
+		p->ticks_elapsed++;
+		if (p->ticks_elapsed >= p->ass_ticks)
 		{
-			if (myproc()->state == RUNNING)
+			p->ticks_elapsed = 0;
+			if (p->priority_level < 4)
 			{
-				struct proc *p = myproc();
-				if (p->time_slice <= x)
-				{
-					int z = 4;
-					if (p->curr_queue != z)
-					{
-						p->curr_queue++;
-					}
-					yield();
-				}
+				p->priority_level++;
+				p->ass_ticks *= 2;
 			}
+			yield();
 		}
 	}
 #endif
@@ -272,35 +270,34 @@ void kerneltrap()
 		yield();
 #endif
 #ifdef LBS
+	// acquire(&myproc()->lock);
 	if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
 	{
 		struct proc *pr = myproc();
-		if (pr->time_avail == pr->time_spent)
+		pr->time_spent += 1;
+		if (pr->time_spent >= pr->time_avail)
 		{
+			pr->time_spent = 0;
 			yield();
 		}
 	}
+	// release(&myproc()->lock);
 #endif
 
 #ifdef MLFQ
-	if (which_dev == 2)
+	if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
 	{
-		int x = 0;
-		if (myproc() != x)
+		struct proc *p = myproc();
+		p->ticks_elapsed++;
+		if (p->ticks_elapsed >= p->ass_ticks)
 		{
-			if (myproc()->state == RUNNING)
+			p->ticks_elapsed = 0;
+			if (p->priority_level < 4)
 			{
-				struct proc *p = myproc();
-				if (p->time_slice <= x)
-				{
-					int z = 4;
-					if (p->curr_queue != z)
-					{
-						p->curr_queue++;
-					}
-					yield();
-				}
+				p->priority_level++;
+				p->ass_ticks *= 2;
 			}
+			yield();
 		}
 	}
 #endif

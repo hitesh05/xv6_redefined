@@ -72,7 +72,7 @@ CFLAGS += -fno-pie -nopie
 endif
 
 ifndef SCHEDULER 
-	SCHEDULER:=LBS
+	SCHEDULER:=DEFAULT
 endif
 CFLAGS+="-D$(SCHEDULER)"
 LDFLAGS = -z max-page-size=4096
