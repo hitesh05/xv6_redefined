@@ -134,14 +134,13 @@ void usertrap(void)
 		if (p != 0 && which_dev == 2 && p->checkifAlarmOn == 0)
 		{
 			// Save trapframe
-
+			struct trapframe *tf = kalloc();
+			memmove(tf, p->trapframe, PGSIZE);
+			p->alarm_handler = tf;
 			p->sigticks++;
 			if (p->sigticks >= p->maxticks)
 			{
 				p->checkifAlarmOn = 1;
-				struct trapframe *tf = kalloc();
-				memmove(tf, p->trapframe, PGSIZE);
-				p->alarm_handler = tf;
 
 				p->trapframe->epc = p->handler;
 			}

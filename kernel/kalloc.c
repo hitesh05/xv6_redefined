@@ -28,7 +28,7 @@ struct
 struct
 {
 	struct spinlock lock;
-	int count[PHYSTOP / PGSIZE];
+	int count[(PHYSTOP / PGSIZE)*3];
 } refcnt;
 
 void krefincr(void *pa)

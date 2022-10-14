@@ -91,40 +91,42 @@ int maxticks;
     <li>
     A new variable ctime was added in struct proc to store the creation time of the process in allocproc</li>
 </ul>
-```
-			intr_on();
-			struct proc *check = NULL;
-			for (p = proc; p < &proc[NPROC]; p++)
-			{
-				if (p->state == RUNNABLE)
-				{
-					if (check == NULL)
-					{
-						check = p;
-					}
-					else if (p->creationTime < check->creationTime)
-					{
-						check = p;
-					}
-				}
-			}
-			if (check != NULL)
-			{
-				acquire(&check->lock);
 
-				// Switch to chosen process.  It is the process's job
-				// to release its lock and then reacquire it
-				// before jumping back to us.
-				check->state = RUNNING;
-				c->proc = check;
-				swtch(&c->context, &check->context);
-
-				// Process is done running for now.
-				// It should have changed its p->state before coming back.
-				c->proc = 0;
-				release(&check->lock);
-			}
 ```
+intr_on();
+struct proc *check = NULL;
+for (p = proc; p < &proc[NPROC]; p++)
+{
+	if (p->state == RUNNABLE)
+	{
+		if (check == NULL)
+		{
+			check = p;
+		}
+		else if (p->creationTime < check->creationTime)
+		{
+			check = p;
+		}
+	}
+}
+if (check != NULL)
+{
+	acquire(&check->lock);
+
+	// Switch to chosen process.  It is the process's job
+	// to release its lock and then reacquire it
+	// before jumping back to us.
+	check->state = RUNNING;
+	c->proc = check;
+	swtch(&c->context, &check->context);
+
+	// Process is done running for now.
+	// It should have changed its p->state before coming back.
+	c->proc = 0;
+	release(&check->lock);
+}
+```
+
 
 ### PBS
 
@@ -200,6 +202,105 @@ intr_on();
     <li>Round Robin is done for the priority number 4 i.e. lowest priority </li>
 </ul>
 
+```
+#ifdef MLFQ
+struct proc *mlfq_sched(void)
+{
+	// aging
+	struct proc *pr = proc;
+	int x = NPROC;
+	while (pr < &proc[x])
+	{
+		if (pr->state == RUNNABLE)
+		{
+			if (ticks - pr->enter_time >= 256)
+			{
+				int test = pr->in_queue;
+				if (test)
+				{
+					int level = pr->curr_queue;
+					qerase(&mlfq[level], pr->pid);
+					pr->in_queue = 0;
+				}
+				if (pr->curr_queue != 0)
+				{
+					pr->curr_queue--;
+				}
+				else
+				{
+					pr->curr_queue = 0;
+				}
+
+				pr->enter_time = ticks;
+			}
+		}
+		pr++;
+	}
+
+	pr = proc;
+	while (pr < &proc[x])
+	{
+		if (pr->state == RUNNABLE)
+		{
+			int test = pr->in_queue;
+			if (!test)
+			{
+				int level = pr->curr_queue;
+				push(&mlfq[level], pr);
+				pr->in_queue = 1;
+			}
+		}
+		pr++;
+	}
+
+	int lev = 0;
+	while (lev < num_levels)
+	{
+
+		while (mlfq[lev].size)
+		{
+			struct proc *pr = front(&mlfq[lev]);
+			pop(&mlfq[lev]);
+			pr->in_queue = 0;
+			if (pr->state != RUNNABLE)
+			{
+				continue;
+			}
+			else
+			{
+				pr->enter_time = ticks;
+				return pr;
+			}
+		}
+		lev++;
+	}
+
+	return 0;
+}
+#endif
+
+#ifdef MLFQ
+		p = mlfq_sched();
+		if (!p)
+		{
+			continue;
+		}
+		else
+		{
+			// acquire(&p->lock);
+			int slices[5] = {1, 2, 4, 8, 16};
+			int level = p->curr_queue;
+			p->time_slice = slices[level];
+			c->proc = p;
+			p->state = RUNNING;
+			swtch(&c->context, &p->context);
+			c->proc = 0;
+			p->enter_time = ticks;
+			// release(&p->lock);
+		}
+#endif
+```
+
 
 
 ### LBS
@@ -210,7 +311,30 @@ proportion to the number of tickets it owns. </li>
     <li>It assigns the tickets using the rand() function i.e. randomly hence the name lottery based scheduler. This means the tickets and cycles will be random and implemented as detailed</li>
 </ul>
 
+```
+#ifdef LBS
+		for (p = proc; p < &proc[NPROC]; p++)
+		{
+			acquire(&p->lock);
+			if (p->state == RUNNABLE)
+			{
+				// Switch to chosen process.  It is the process's job
+				// to release its lock and then reacquire it
+				// before jumping back to us.
+				p->time_avail = (rand() % 64) * p->tickets;
+				p->state = RUNNING;
+				c->proc = p;
+				swtch(&c->context, &p->context);
+
+				// Process is done running for now.
+				// It should have changed its p->state before coming back.
+				c->proc = 0;
+			}
+			release(&p->lock);
+		}
+#endif
+```
+
 ### Task 3
 
 ### Copy on Write Fork
-
