@@ -204,7 +204,7 @@ void procinit(void)
 	for (p = proc; p < &proc[NPROC]; p++)
 	{
 		initlock(&p->lock, "proc");
-		p->state = UNUSED;
+		// p->state = UNUSED;
 		p->kstack = KSTACK((int)(p - proc));
 	}
 }
@@ -335,6 +335,7 @@ found:
 	p->runTimePrev = 0;
 	p->sleepTimePrev = 0;
 	p->sleepStartTime = 0;
+	p->sigticks=0;
 	// #endif
 
 	return p;
@@ -493,7 +494,7 @@ int waitx(uint64 addr, uint *wtime, uint *rtime)
 					pid = np->pid;
 					// #ifdef PBS
 					*rtime = np->runTime;
-					printf("%d %d %d\n", np->endTime, np->creationTime, np->runTime);
+					// printf("%d %d %d\n", np->endTime, np->creationTime, np->runTime);
 					*wtime = np->endTime - np->creationTime - np->runTime;
 					// #endif
 					if (addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
@@ -707,9 +708,12 @@ int wait(uint64 addr)
 void upd_time(void)
 {
 	struct proc *pr = proc;
+
 	while (pr < &proc[NPROC])
 	{
 		acquire(&pr->lock);
+		if(pr->state==4)
+	// printf("%d\n",pr->state);	
 		if (pr->state == RUNNING)
 		{
 			// #ifdef PBS
@@ -812,6 +816,7 @@ struct proc *mlfq_sched(void)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+// #include "string.h"
 void scheduler(void)
 {
 	struct proc *p;
@@ -832,9 +837,10 @@ void scheduler(void)
 				// to release its lock and then reacquire it
 				// before jumping back to us.
 				p->state = RUNNING;
+
 				c->proc = p;
 				swtch(&c->context, &p->context);
-
+				// printf("%d %s\n",p->state,p->name);
 				// Process is done running for now.
 				// It should have changed its p->state before coming back.
 				c->proc = 0;
@@ -864,8 +870,8 @@ void scheduler(void)
 		}
 #endif
 #ifdef FCFS
-		for (;;)
-		{
+		// for (;;)
+		// {
 			// Avoid deadlock by ensuring that devices can interrupt.
 			intr_on();
 			struct proc *check = NULL;
@@ -899,11 +905,11 @@ void scheduler(void)
 				c->proc = 0;
 				release(&check->lock);
 			}
-		}
+		// }
 #endif
 #ifdef PBS
-		for (;;)
-		{
+		// for (;;)
+		// {
 			// Avoid deadlock by ensuring that devices can interrupt.
 			intr_on();
 			struct proc *check = NULL;
@@ -958,7 +964,7 @@ void scheduler(void)
 				c->proc = 0;
 				release(&check->lock);
 			}
-		}
+		// }
 #endif
 
 #ifdef MLFQ
@@ -1214,7 +1220,22 @@ void procdump(void)
 		[ZOMBIE] "zombie"};
 	struct proc *p;
 	char *state;
-
+// #ifdef PBS
+//   printf("\nPID Priority State rtime wtime nrun\n");
+//   for (p = proc; p < &proc[NPROC]; p++)
+//   {
+//     // acquire(&p->lock);
+//     if (p->state == UNUSED)
+//       continue;
+//     if (p->state >= 0 && p->state < NELEM(states) && states[p->state])
+//       state = states[p->state];
+//     else
+//       state = "???";
+//     printf("%d     %d     %s   %d    %d    %d\n", p->pid, p->dynamicpriority, state, p->runtime, p->totalsleeptime, p->schedcount);
+//     // release(&p->lock);
+//   }
+//   return;
+// #endif
 	printf("\n");
 	for (p = proc; p < &proc[NPROC]; p++)
 	{
@@ -1232,3 +1253,7 @@ void procdump(void)
 // int settickets(int num){
 
 // }
+int alarmtest(void)
+{
+	
+}

@@ -110,7 +110,8 @@ void            pinit(void);
 void            upd_time(void);
 int             set_priority (int, int);
 int             waitx(uint64, uint*, uint*);
-
+int             sigalarm(int ticks, void (*handler)());
+int             sigreturn(void);
 // swtch.S
 void            swtch(struct context*, struct context*);
 

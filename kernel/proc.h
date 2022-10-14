@@ -107,7 +107,13 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+// sigalarm and sigreturn
+struct trapframe * alarm_handler;
+uint64 handler;
 
+int checkifAlarmOn;
+int sigticks;
+int maxticks;
   // LBS SCHEDULER
   int tickets;
   int time_spent;

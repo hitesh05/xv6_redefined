@@ -67,6 +67,22 @@ void usertrap(void)
 	else if ((which_dev = devintr()) != 0)
 	{
 		// ok
+		// lab 6 alarm
+		if (p != 0 && which_dev == 2 && p->checkifAlarmOn == 0)
+		{
+			// Save trapframe
+
+			p->sigticks++;
+			if (p->sigticks >= p->maxticks)
+			{
+				p->checkifAlarmOn = 1;
+				struct trapframe *tf = kalloc();
+				memmove(tf, p->trapframe, PGSIZE);
+				p->alarm_handler = tf;
+
+				p->trapframe->epc = p->handler;
+			}
+		}
 	}
 	else // trap caused by incorrect behaviour. prints details of the user program and sets cp->killed to clean up the process then exits
 	{
@@ -78,11 +94,11 @@ void usertrap(void)
 	if (killed(p))
 		exit(-1);
 
-// give up the CPU if this is a timer interrupt.
-#ifdef DEFAULT
-	if (which_dev == 2)
+	// give up the CPU if this is a timer interrupt.
+	// #ifdef DEFAULT
+	if (which_dev == 2 && myproc()!=0 && myproc()->state==RUNNING)
 		yield();
-#endif
+// #endif
 #ifdef LBS
 	if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
 	{
@@ -184,13 +200,18 @@ void kerneltrap()
 		printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
 		panic("kerneltrap");
 	}
-
+	
 	// give up the CPU if this is a timer interrupt.
 	// checkthis
 
 #ifdef DEFAULT
-	if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
-		yield();
+	if (which_dev == 2 && myproc() != 0)
+
+	{
+		printf("%d\n", myproc()->state);
+		if (myproc()->state == RUNNING)
+			yield();
+	}
 #endif
 #ifdef LBS
 	if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
